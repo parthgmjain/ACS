@@ -1,6 +1,8 @@
 package com.acertainbookstore.client.tests;
 
 import com.acertainbookstore.business.*;
+import com.acertainbookstore.client.BookStoreHTTPProxy;
+import com.acertainbookstore.client.StockManagerHTTPProxy;
 import com.acertainbookstore.interfaces.BookStore;
 import com.acertainbookstore.interfaces.StockManager;
 import com.acertainbookstore.utils.BookStoreException;
@@ -21,10 +23,19 @@ public class BookStoreTopRatedTest {
     private StockManager stockManager;
 
     @Before
-    public void setUp() {
-        bookStore = new BookStoreHTTPProxy("http://localhost:8081");
-        stockManager = new StockManagerHTTPProxy("http://localhost:8081");
-        
+    public void setUp() throws Exception {
+        String localTestProperty = System.getProperty(com.acertainbookstore.utils.BookStoreConstants.PROPERTY_KEY_LOCAL_TEST);
+        boolean localTest = (localTestProperty != null) ? Boolean.parseBoolean(localTestProperty) : true;
+
+        if (localTest) {
+            CertainBookStore store = new CertainBookStore();
+            bookStore = store;
+            stockManager = store;
+        } else {
+            bookStore = new BookStoreHTTPProxy("http://localhost:8081");
+            stockManager = new StockManagerHTTPProxy("http://localhost:8081");
+        }
+
         try {
             stockManager.removeAllBooks();
         } catch (BookStoreException e) {
@@ -141,8 +152,8 @@ public class BookStoreTopRatedTest {
             stockManager.addBooks(booksToAdd);
             
             // Rate books
-            bookStore.rateBooks(Collections.singletonMap(1, 5));
-            bookStore.rateBooks(Collections.singletonMap(2, 3));
+            bookStore.rateBooks(Collections.<BookRating>singleton(new BookRating(1, 5)));
+            bookStore.rateBooks(Collections.<BookRating>singleton(new BookRating(2, 3)));
             
             List<Book> topRated = bookStore.getTopRatedBooks(2);
             assertNotNull(topRated);

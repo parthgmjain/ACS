@@ -1,6 +1,8 @@
 package com.acertainbookstore.client.tests;
 
 import com.acertainbookstore.business.*;
+import com.acertainbookstore.client.BookStoreHTTPProxy;
+import com.acertainbookstore.client.StockManagerHTTPProxy;
 import com.acertainbookstore.interfaces.BookStore;
 import com.acertainbookstore.interfaces.StockManager;
 import com.acertainbookstore.utils.BookStoreException;
@@ -26,11 +28,19 @@ public class BookStoreRatingTest {
     private StockManager stockManager;
 
     @Before
-    public void setUp() {
-        // Using HTTP proxies to test full RPC communication layer
-        bookStore = new BookStoreHTTPProxy("http://localhost:8081");
-        stockManager = new StockManagerHTTPProxy("http://localhost:8081");
-        
+    public void setUp() throws Exception {
+        String localTestProperty = System.getProperty(com.acertainbookstore.utils.BookStoreConstants.PROPERTY_KEY_LOCAL_TEST);
+        boolean localTest = (localTestProperty != null) ? Boolean.parseBoolean(localTestProperty) : true;
+
+        if (localTest) {
+            CertainBookStore store = new CertainBookStore();
+            bookStore = store;
+            stockManager = store;
+        } else {
+            bookStore = new BookStoreHTTPProxy("http://localhost:8081");
+            stockManager = new StockManagerHTTPProxy("http://localhost:8081");
+        }
+
         try {
             stockManager.removeAllBooks();
         } catch (BookStoreException e) {
@@ -51,8 +61,8 @@ public class BookStoreRatingTest {
             stockManager.addBooks(booksToAdd);
             
             // Execute - rate the book
-            Map<Integer, Integer> ratings = new HashMap<>();
-            ratings.put(TEST_ISBN_1, 4);
+            Set<BookRating> ratings = new HashSet<>();
+            ratings.add(new BookRating(TEST_ISBN_1, 4));
             bookStore.rateBooks(ratings);
             
             // Verify - check that we can still query books (system is consistent)
@@ -77,9 +87,9 @@ public class BookStoreRatingTest {
             stockManager.addBooks(booksToAdd);
             
             // Execute - rate the same book multiple times
-            bookStore.rateBooks(Collections.singletonMap(TEST_ISBN_1, 3));
-            bookStore.rateBooks(Collections.singletonMap(TEST_ISBN_1, 5));
-            bookStore.rateBooks(Collections.singletonMap(TEST_ISBN_1, 4));
+            bookStore.rateBooks(Collections.<BookRating>singleton(new BookRating(TEST_ISBN_1, 3)));
+            bookStore.rateBooks(Collections.<BookRating>singleton(new BookRating(TEST_ISBN_1, 5)));
+            bookStore.rateBooks(Collections.<BookRating>singleton(new BookRating(TEST_ISBN_1, 4)));
             
             // Verify - system should remain consistent
             List<Book> topRated = bookStore.getTopRatedBooks(5);
@@ -105,10 +115,10 @@ public class BookStoreRatingTest {
             stockManager.addBooks(booksToAdd);
             
             // Rate all books in one call
-            Map<Integer, Integer> ratings = new HashMap<>();
-            ratings.put(TEST_ISBN_1, 5);
-            ratings.put(TEST_ISBN_2, 3);
-            ratings.put(TEST_ISBN_3, 4);
+            Set<BookRating> ratings = new HashSet<>();
+            ratings.add(new BookRating(TEST_ISBN_1, 5));
+            ratings.add(new BookRating(TEST_ISBN_2, 3));
+            ratings.add(new BookRating(TEST_ISBN_3, 4));
             bookStore.rateBooks(ratings);
             
             // Verify system remains functional
@@ -131,8 +141,8 @@ public class BookStoreRatingTest {
             booksToAdd.add(new ImmutableStockBook(TEST_ISBN_1, "Test Book", "Test Author", 10.0f, 5, 0, 0, 0, false));
             stockManager.addBooks(booksToAdd);
             
-            Map<Integer, Integer> ratings = new HashMap<>();
-            ratings.put(TEST_ISBN_1, 6); // Invalid - too high
+            Set<BookRating> ratings = new HashSet<>();
+            ratings.add(new BookRating(TEST_ISBN_1, 6)); // Invalid - too high
             
             bookStore.rateBooks(ratings);
             fail("Should have thrown exception for rating > 5");
@@ -155,8 +165,8 @@ public class BookStoreRatingTest {
             booksToAdd.add(new ImmutableStockBook(TEST_ISBN_1, "Test Book", "Test Author", 10.0f, 5, 0, 0, 0, false));
             stockManager.addBooks(booksToAdd);
             
-            Map<Integer, Integer> ratings = new HashMap<>();
-            ratings.put(TEST_ISBN_1, -1); // Invalid - negative
+            Set<BookRating> ratings = new HashSet<>();
+            ratings.add(new BookRating(TEST_ISBN_1, -1)); // Invalid - negative
             
             bookStore.rateBooks(ratings);
             fail("Should have thrown exception for negative rating");
@@ -175,8 +185,8 @@ public class BookStoreRatingTest {
     @Test
     public void testRateNonExistentBook() {
         try {
-            Map<Integer, Integer> ratings = new HashMap<>();
-            ratings.put(NON_EXISTENT_ISBN, 4);
+            Set<BookRating> ratings = new HashSet<>();
+            ratings.add(new BookRating(NON_EXISTENT_ISBN, 4));
             
             bookStore.rateBooks(ratings);
             fail("Should have thrown exception for non-existent ISBN");
@@ -202,9 +212,9 @@ public class BookStoreRatingTest {
             stockManager.addBooks(booksToAdd);
             
             // Try to rate both books, but one rating is invalid
-            Map<Integer, Integer> ratings = new HashMap<>();
-            ratings.put(TEST_ISBN_1, 4);  // Valid
-            ratings.put(TEST_ISBN_2, 6);  // Invalid - should cause rollback
+            Set<BookRating> ratings = new HashSet<>();
+            ratings.add(new BookRating(TEST_ISBN_1, 4));  // Valid
+            ratings.add(new BookRating(TEST_ISBN_2, 6));  // Invalid - should cause rollback
             
             bookStore.rateBooks(ratings);
             fail("Should have thrown exception due to invalid rating");
@@ -233,8 +243,8 @@ public class BookStoreRatingTest {
             booksToAdd.add(new ImmutableStockBook(TEST_ISBN_1, "Test Book", "Test Author", 10.0f, 5, 0, 0, 0, false));
             stockManager.addBooks(booksToAdd);
             
-            Map<Integer, Integer> ratings = new HashMap<>();
-            ratings.put(TEST_ISBN_1, 0); // Minimum valid rating
+            Set<BookRating> ratings = new HashSet<>();
+            ratings.add(new BookRating(TEST_ISBN_1, 0)); // Minimum valid rating
             
             bookStore.rateBooks(ratings);
             // Should succeed without exception
@@ -255,8 +265,8 @@ public class BookStoreRatingTest {
             booksToAdd.add(new ImmutableStockBook(TEST_ISBN_1, "Test Book", "Test Author", 10.0f, 5, 0, 0, 0, false));
             stockManager.addBooks(booksToAdd);
             
-            Map<Integer, Integer> ratings = new HashMap<>();
-            ratings.put(TEST_ISBN_1, 5); // Maximum valid rating
+            Set<BookRating> ratings = new HashSet<>();
+            ratings.add(new BookRating(TEST_ISBN_1, 5)); // Maximum valid rating
             
             bookStore.rateBooks(ratings);
             // Should succeed without exception
@@ -273,7 +283,7 @@ public class BookStoreRatingTest {
     @Test
     public void testEmptyRatingsMap() {
         try {
-            Map<Integer, Integer> ratings = new HashMap<>(); // Empty map
+            Set<BookRating> ratings = new HashSet<>(); // Empty set
             bookStore.rateBooks(ratings);
             // Should succeed without error
             

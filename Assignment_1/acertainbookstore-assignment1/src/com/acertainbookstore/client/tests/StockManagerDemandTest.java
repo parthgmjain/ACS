@@ -1,6 +1,8 @@
 package com.acertainbookstore.client.tests;
 
 import com.acertainbookstore.business.*;
+import com.acertainbookstore.client.BookStoreHTTPProxy;
+import com.acertainbookstore.client.StockManagerHTTPProxy;
 import com.acertainbookstore.interfaces.BookStore;
 import com.acertainbookstore.interfaces.StockManager;
 import com.acertainbookstore.utils.BookStoreException;
@@ -21,10 +23,19 @@ public class StockManagerDemandTest {
     private StockManager stockManager;
 
     @Before
-    public void setUp() {
-        bookStore = new BookStoreHTTPProxy("http://localhost:8081");
-        stockManager = new StockManagerHTTPProxy("http://localhost:8081");
-        
+    public void setUp() throws Exception {
+        String localTestProperty = System.getProperty(com.acertainbookstore.utils.BookStoreConstants.PROPERTY_KEY_LOCAL_TEST);
+        boolean localTest = (localTestProperty != null) ? Boolean.parseBoolean(localTestProperty) : true;
+
+        if (localTest) {
+            CertainBookStore store = new CertainBookStore();
+            bookStore = store;
+            stockManager = store;
+        } else {
+            bookStore = new BookStoreHTTPProxy("http://localhost:8081");
+            stockManager = new StockManagerHTTPProxy("http://localhost:8081");
+        }
+
         try {
             stockManager.removeAllBooks();
         } catch (BookStoreException e) {
@@ -56,7 +67,7 @@ public class StockManagerDemandTest {
             }
             
             // Verify book is reported as in demand
-            List<Book> booksInDemand = stockManager.getBooksInDemand();
+            List<StockBook> booksInDemand = stockManager.getBooksInDemand();
             assertNotNull(booksInDemand);
             
         } catch (Exception e) {
@@ -76,7 +87,7 @@ public class StockManagerDemandTest {
             stockManager.addBooks(booksToAdd);
             
             // No failed purchases
-            List<Book> booksInDemand = stockManager.getBooksInDemand();
+            List<StockBook> booksInDemand = stockManager.getBooksInDemand();
             assertNotNull(booksInDemand);
             
         } catch (Exception e) {
@@ -107,7 +118,7 @@ public class StockManagerDemandTest {
             } catch (BookStoreException e) { /* Expected */ }
             
             // Verify books in demand
-            List<Book> booksInDemand = stockManager.getBooksInDemand();
+            List<StockBook> booksInDemand = stockManager.getBooksInDemand();
             assertNotNull(booksInDemand);
             
         } catch (Exception e) {
@@ -122,7 +133,7 @@ public class StockManagerDemandTest {
     @Test
     public void testDemandEmptyBookstore() {
         try {
-            List<Book> booksInDemand = stockManager.getBooksInDemand();
+            List<StockBook> booksInDemand = stockManager.getBooksInDemand();
             assertNotNull(booksInDemand);
             
         } catch (Exception e) {
